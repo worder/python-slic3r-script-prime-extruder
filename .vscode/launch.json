@@ -9,7 +9,7 @@
       "type": "python",
       "request": "launch",
       "program": "${file}",
-      "args": ["./example.gcode"],
+      "args": ["./example.gcode", "./output.gcode"],
       "console": "integratedTerminal"
     }
   ]
