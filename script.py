@@ -2,6 +2,7 @@ import sys
 import re
 import os
 import time
+import math
 
 '''
 -------------------------------------------------------
@@ -32,7 +33,7 @@ G92 E7.000 ; *** re-init extruder position ***
 '''
 
 
-def modFirstLayer(val):
+def old_modFirstLayer(val):
     m = re.search('G1 Z\d+.\d+ F\d+.\d+ ; move to next layer \(0\)\s*'
                   '(?P<retract>G1 E.?\d+\.\d+ (F\d+\.\d+ )?; retract\s*'
                   # consider reset as a part of retraction process
@@ -43,22 +44,65 @@ def modFirstLayer(val):
     if m:
         retract = m.group('retract')
         unretract = m.group('unretract')
-        unretractValue = m.group('unretractValue')
+        unretractValue = m.group('unretractValue') 
 
         # delete retraction
         val = val.replace(retract, '; --- deleted: retraction ---\n')
         val = val.replace(unretract, '; --- deleted: unretrcation ---\n')
 
         # add extruder prime command and continue extruding when positioning to skirt start
-        val = re.sub('(?P<start>G1 X\d+\.\d+ Y\d+\.\d+)\s(?P<end>F\d+.\d+ ; move to first skirt point)(?P<nl>\s*)',
+        new_val = re.sub('(?P<start>G1 X\d+\.\d+ Y\d+\.\d+)\s(?P<end>(F\d+.\d+ )?; move to first skirt point)(?P<nl>\s*)',
                      'G1 E14 F300 ; --- prime extruder ---\n'
                      '\g<start> E20 \g<end> --- edited: add extrusion ---\g<nl>'
                      'G92 E%s ; --- re-init extruder position ---\n' % unretractValue, val)
 
-        return val
+        if val != new_val:
+            return new_val
+        else:
+            return False
+
     else:
         return False
 
+extrusion_const = 0.0445 # per mm distance
+
+def modFirstLayer(val):
+    m = re.search('G1 Z\d+.\d+ (?P<feedrate_initial>F\d+.\d+) ; move to next layer \(0\)\s*'
+                  '(?P<move_to_skirt>'
+                  'G1 E.?\d+\.\d+ (F\d+\.\d+ )?; retract\s*'
+                  'G92 E0 ; reset extrusion distance\s*'
+                  'G1 X(?P<skirt_x>\d+\.\d+) Y(?P<skirt_y>\d+\.\d+) (?P<feedrate>(F\d+.\d+ )?); move to first skirt point\s*'
+                  'G1 E(?P<e_initial>\d+.\d+) (F\d+.\d+ )?; unretract\s*)', val)
+
+    if m:
+        feedrate_initial = m.group('feedrate_initial')
+        feedrate = m.group('feedrate')
+        e_initial = m.group('e_initial')
+        skirt_x = float(m.group('skirt_x'))
+        skirt_y = float(m.group('skirt_y'))
+        zero_to_skirt_distance = math.sqrt(math.pow(skirt_x, 2) + math.pow(skirt_y, 2)) # hypotenuse
+
+        initial_move_extrusion_value = round(extrusion_const * zero_to_skirt_distance, 3)
+        initial_move_feedrate = feedrate if feedrate else feedrate_initial
+
+        move_to_skirt_block = m.group('move_to_skirt')
+        new_move_to_skirt_block = ('; >>> primer script START <<< \n'
+            'G92 E0 ; reset extrusion distance\n'
+            'G1 E10 F300 ; prime extruder\n'
+            'G92 E0 ; reset extrusion distance\n'
+            'G1 X%s Y%s E%s %s ; move to first skirt point\n' 
+            'G92 E%s ; initialize extruder\n' 
+            '; >>> primer script END <<<\n'% (skirt_x, skirt_y, initial_move_extrusion_value, initial_move_feedrate, e_initial))
+
+        new_val = val.replace(move_to_skirt_block, new_move_to_skirt_block)
+
+        if val != new_val:
+            return new_val
+        else:
+            return False
+
+    else:
+        return False
 
 processed = False
 buffer = ""
