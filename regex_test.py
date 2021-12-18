@@ -1,7 +1,7 @@
 import re
 
-val = "G1 E-5.00000 ; retract"
+val = "G1 Z.2 F4200 ; move to next layer (0)"
 
-m = re.search('(?P<retract>G1 E.?\d+\.\d+ (F\d+\.\d+ )?; retract\s*)', val)
+m = re.search('G1 Z\d*\.\d+ (?P<feedrate_initial>F\d*\.?\d+) ; move to next layer \(0\)\s*', val)
 
-print(m.group('retract'))
+print(m)

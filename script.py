@@ -19,6 +19,12 @@ G1 E-5.00000 ; retract
 G92 E0 ; reset extrusion distance
 G1 X108.760 Y66.909 ; move to first skirt point
 G1 E5.00000 ; unretract
+----------------- or (new prusa 2.4.0. beta case) ---------------
+G1 Z.2 F4200 ; move to next layer (0)
+G1 E-4 F2400 ; retract
+G92 E0 ; reset extrusion distance
+G1 X26.479 Y33.761 F4200 ; move to first skirt point
+G1 E4 F2400 ;  ; unretract
 -------------------------------------------------------
 to this:
 -------------------------------------------------------
@@ -35,12 +41,12 @@ G92 E7.000 ; *** re-init extruder position ***
 EXTRUSION_RATE_CONST = 0.0445 # how much mm extrude per mm of XY movement
 
 def modFirstLayer(val):
-    m = re.search('G1 Z\d+.\d+ (?P<feedrate_initial>F\d+.\d+) ; move to next layer \(0\)\s*'
+    m = re.search('G1 Z\d*\.?\d+ (?P<feedrate_initial>F\d*\.?\d+) ; move to next layer \(0\)\s*'
                   '(?P<move_to_skirt>'
-                  'G1 E.?\d+\.\d+ (F\d+\.\d+ )?; retract\s*'
+                  'G1 E.?\d*\.?\d+ (F\d*\.?\d+ )?; retract\s*'
                   'G92 E0 ; reset extrusion distance\s*'
-                  'G1 X(?P<skirt_x>\d+\.\d+) Y(?P<skirt_y>\d+\.\d+) (?P<feedrate>(F\d+.\d+ )?); move to first skirt point\s*'
-                  'G1 E(?P<e_initial>\d+.\d+) (F\d+.\d+ )?; unretract\s*)', val)
+                  'G1 X(?P<skirt_x>\d*\.?\d+) Y(?P<skirt_y>\d*\.?\d+) (?P<feedrate>(F\d*.?\d+ )?); move to first skirt point\s*'
+                  'G1 E(?P<e_initial>\d*\.?\d+) (F\d*\.?\d+)? ;(\s*;)? unretract\s*)', val)
 
     if m:
         feedrate_initial = m.group('feedrate_initial')
